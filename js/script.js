@@ -184,48 +184,41 @@ window.addEventListener('DOMContentLoaded', function () {
 		}
 	}
 
-	new MenuCard(
-		"img/tabs/vegy.jpg",
-		"vegy",
-		'Меню "Фитнес"',
-		'Меню "Фитнес" - это новый подход к приготовлению блюд: больше свежих овощей и фруктов. Продукт активных и здоровых людей. Это абсолютно новый продукт с оптимальной ценой и высоким качеством!',
-		9,
-		".menu .container"
-	).render();
+	const getResource = async (url) => {     // получаем ответ от сервера
+		const res = await fetch(url);         //await позволяет дождаться результата запроса.
 
-	new MenuCard(
-		"img/tabs/post.jpg",
-		"post",
-		'Меню "Постное"',
-		'Меню “Постное” - это тщательный подбор ингредиентов: полное отсутствие продуктов животного происхождения, молоко из миндаля, овса, кокоса или гречки, правильное количество белков за счет тофу и импортных вегетарианских стейков.',
-		14,
-		".menu .container"
-	).render();
+		if (!res.ok) {								  // если что-то пошло не так с запросом, то выкидываем ошибку
+			throw new Error(`Could not fetch ${url}, status: ${res.status}`);
+		}
 
-	new MenuCard(
-		"img/tabs/elite.jpg",
-		"elite",
-		'Меню “Премиум”',
-		'В меню “Премиум” мы используем не только красивый дизайн упаковки, но и качественное исполнение блюд. Красная рыба, морепродукты, фрукты - ресторанное меню без похода в ресторан!',
-		21,
-		".menu .container"
-	).render();
+		return await res.json();  // возвращаем промис из функции getResource и трансформируем в нормальный объект
+	};
+
+	getResource('http://localhost:3000/menu')  // получаем массив menu (массив с объектами)
+		.then(data => {							// берем данные из res.json
+			data.forEach(({img, altimg, title, descr, price}) => {	// перебираем наш массив из объектов через forEach
+				// и деструктуризирую по отдельным частям и передаю внутрь конструктора MenuCard который
+				new MenuCard(img, altimg, title, descr, price, '.menu .container').render();	
+				//создаёт новую карточку на странице и рендерит (menu и container - родители, в которые мы будем пушить)
+				// конструктор будет создаваться столько раз, сколько у нас объектов в массиве
+			});
+		});
 
 	// Forms
 
 	const forms = document.querySelectorAll('form');
-	const message = {
-		loading: 'img/form/spinner.svg',
+	const message = {          							// создаём объект с выводимыми для пользователями сообщениями
+		loading: 'img/form/spinner.svg',					// выводит картинку со спиннером загрузки
 		success: 'Спасибо! Скоро мы с вами свяжемся',
 		failure: 'Что-то пошло не так...'
 	};
 
-	forms.forEach(item => {
+	forms.forEach(item => {    							// под каждую из форм подвязываем функцию postData
 		bindPostData(item);
 	});
 
-	const postData = async (url, data) => {
-		const res = await fetch(url, {
+	const postData = async (url, data) => {     // настраиваем запрос, получаем ответ от сервера и трансформирует в json
+		const res = await fetch(url, { // помещаем в переменную res промис. await позволяет дождаться результата запроса.
 			method: "POST",
 				headers: {
 					'Content-type': 'application/json'
@@ -233,59 +226,50 @@ window.addEventListener('DOMContentLoaded', function () {
 				body: data
 		});
 
-		return await res.json();
+		return await res.json();  // возвращаем промис из функции postData. await позволяет дождаться результата запроса.
 	};
 
-	function bindPostData(form) {
+	function bindPostData(form) {				// привязываем постинг данных
 		form.addEventListener('submit', (e) => {
 			e.preventDefault();
 
-			let statusMessage = document.createElement('img');
-			statusMessage.src = message.loading;
+			let statusMessage = document.createElement('img');  // создаём новый элемент с картинкой (спиннер)
+			statusMessage.src = message.loading; // подставляем путь из объекта с сообщениями и приписываем инлайнcss свойства
 			statusMessage.style.cssText = `
 				display: block;
 				margin: 0 auto;
 			`;
-			form.insertAdjacentElement('afterend', statusMessage);
+			form.insertAdjacentElement('afterend', statusMessage); // вставляем элемент(спиннер) после формы 
 
-			const formData = new FormData(form);
+			const formData = new FormData(form);		// собираем все данные из нашей формы с помощью FormData
 
-			const object = {};
-			formData.forEach(function (value, key) {
-				object[key] = value;
-			});
+			const json = JSON.stringify(Object.fromEntries(formData.entries())); 
+			//превращаем данные из formData в матрицу(массив массивов),затем превращаем в классический объект, а затем этот объект превращаем в json
 
-			fetch('server.php', {
-				method: "POST",
-				headers: {
-					'Content-type': 'application/json'
-				},
-				body: JSON.stringify(object)
-			})
-			.then(data => data.text())
-			.then(data => {
-				console.log(data);
-			 	showThanksModal(message.success);
-			 	form.reset();
-			 	statusMessage.remove();
+			postData('http://localhost:3000/requests', json) // подставляем юрл json файла  и данные
+			.then(data => {									// в случае успеха с сервера возвращаются данные (из промиса)
+				console.log(data);							// выводим в консоль то, что нам выдал сервер
+			 	showThanksModal(message.success);		// вызываем функцию с сообщением об успехе
+			 	form.reset();   								// сбрасываем форму
+			 	statusMessage.remove();						// удаляем уведомление (спиннер)
 			})
 			.catch(() => {
-				showThanksModal(message.failure);
+				showThanksModal(message.failure);		// вызываем функцию с сообщением о неудаче
 			})
 			.finally(() => {
-				form.reset();
+				form.reset();									// сбрасываем форму
 			});
 		});
 	}
 
-	function showThanksModal(message) {
-		const prevModalDialog = document.querySelector('.modal__dialog');
+	function showThanksModal(message) {							// создаём окно thanksModal вместо того, которое было в вёрстке
+		const prevModalDialog = document.querySelector('.modal__dialog'); // получаем элемент по классу
 
-		prevModalDialog.classList.add('hide');
-		openModal();
+		prevModalDialog.classList.add('hide');             // скрываем элемент перед тем, как показать модальное окно
+		openModal();													// открываем модальное окно
 
-		const thanksModal = document.createElement('div');
-		thanksModal.classList.add('.modal__dialog');
+		const thanksModal = document.createElement('div'); // оздаём блок-обёртку
+		thanksModal.classList.add('.modal__dialog');			// назначаем класс для div и формируем вёрстку 
 		thanksModal.innerHTML = `
 			<div class="modal__content">
 				<div class="modal__close" data-close>×</div>
@@ -293,18 +277,18 @@ window.addEventListener('DOMContentLoaded', function () {
 			</div>
 		`;
 
-		document.querySelector('.modal').append(thanksModal);
-		setTimeout(() => {
+		document.querySelector('.modal').append(thanksModal); // получаем модальное окно и добавляем блок thanksModal
+		setTimeout(() => {												// выставляем таймер на 4 секунды
 			thanksModal.remove();
-			prevModalDialog.classList.add('show');
-			prevModalDialog.classList.remove('hide');
-			closeModal();
+			prevModalDialog.classList.add('show');  				// показываем контент modal__dialog
+			prevModalDialog.classList.remove('hide'); 			// скрываем контент modal__dialog
+			closeModal();													// закрываем модальное окно
 		}, 4000);
 	}
 
-	fetch('http://localhost:3000/menu')
-		.then(data => data.json())
-		.then(res => console.log(res));
+	fetch('http://localhost:3000/menu') // посылаем запрос на сервер(получаем массив menu)
+		.then(data => data.json())	// получаем ответ от сервера и преращаем в обычноый объект
+		.then(res => console.log(res)); // полученный результат выводим в консоль
 });
 
 

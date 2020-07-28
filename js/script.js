@@ -194,15 +194,22 @@ window.addEventListener('DOMContentLoaded', function () {
 		return await res.json();  // возвращаем промис из функции getResource и трансформируем в нормальный объект
 	};
 
-	getResource('http://localhost:3000/menu')  // получаем массив menu (массив с объектами)
-		.then(data => {							// берем данные из res.json
-			data.forEach(({img, altimg, title, descr, price}) => {	// перебираем наш массив из объектов через forEach
-				// и деструктуризирую по отдельным частям и передаю внутрь конструктора MenuCard который
-				new MenuCard(img, altimg, title, descr, price, '.menu .container').render();	
-				//создаёт новую карточку на странице и рендерит (menu и container - родители, в которые мы будем пушить)
-				// конструктор будет создаваться столько раз, сколько у нас объектов в массиве
-			});
+	// getResource('http://localhost:3000/menu')
+	// 	.then(data => {
+			// data.forEach(({img, altimg, title, descr, price}) => {
+			// 	new MenuCard(img, altimg, title, descr, price, '.menu .container').render();
+			// });
+	// 	});
+
+	axios.get('http://localhost:3000/menu')
+		.then(data => {
+			data.data.forEach(({img, altimg, title, descr, price}) => {	// перебираем наш массив из объектов
+			// и деструктуризирую по отдельным частям и передаю внутрь конструктора MenuCard который
+			new MenuCard(img, altimg, title, descr, price, '.menu .container').render();	
+			//создаёт новую карточку на странице и рендерит (menu и container - родители, в которые мы будем пушить)
+			// конструктор будет создаваться столько раз, сколько у нас объектов в массиве
 		});
+	});
 
 	// Forms
 
@@ -244,7 +251,8 @@ window.addEventListener('DOMContentLoaded', function () {
 			const formData = new FormData(form);		// собираем все данные из нашей формы с помощью FormData
 
 			const json = JSON.stringify(Object.fromEntries(formData.entries())); 
-			//превращаем данные из formData в матрицу(массив массивов),затем превращаем в классический объект, а затем этот объект превращаем в json
+			//превращаем данные из formData в матрицу(массив массивов),затем 
+			//превращаем в классический объект, а затем этот объект превращаем в json
 
 			postData('http://localhost:3000/requests', json) // подставляем юрл json файла  и данные
 			.then(data => {									// в случае успеха с сервера возвращаются данные (из промиса)
@@ -289,6 +297,127 @@ window.addEventListener('DOMContentLoaded', function () {
 	fetch('http://localhost:3000/menu') // посылаем запрос на сервер(получаем массив menu)
 		.then(data => data.json())	// получаем ответ от сервера и преращаем в обычноый объект
 		.then(res => console.log(res)); // полученный результат выводим в консоль
+
+
+		// Slider
+
+		const slides = document.querySelectorAll('.offer__slide'),	// каждый отдельный слайд
+			prev = document.querySelector('.offer__slider-prev'),	// предыдущий слайд
+			next = document.querySelector('.offer__slider-next'),	// следующий слайд
+			total = document.querySelector('#total'),
+			current = document.querySelector('#current'),
+			slidesWrapper = document.querySelector('.offer__slider-wrapper'), // обёртка слайдера
+			slidesField = document.querySelector('.offer__slider-inner'),	// ширина карусели
+			width = window.getComputedStyle(slidesWrapper).width;	// ширина обёртки
+		
+		let slideIndex = 1;					// текущее положение слайдера. 1 а не 0 для лучшего понимания человека
+		let offset = 0;
+
+		if (slides.length < 10) {
+			total.textContent = `0${slides.length}`;
+			current.textContent = `0${slideIndex}`;
+	  } else {
+			total.textContent = slides.length;
+			current.textContent = slideIndex;
+	  }
+
+		slidesField.style.width = 100 * slides.length + '%';
+		slidesField.style.display = 'flex';
+		slidesField.style.transition = '0.5s all';
+
+		slidesWrapper.style.overflow = 'hidden';
+
+		slides.forEach(slide => {
+			slide.style.width = width;
+		});
+
+		next.addEventListener('click', () => {
+			if (offset == +width.slice(0, width.length - 2) * (slides.length - 1)){//offset==ширине слайдов*кол-во слайдов-1  
+	// в ширине лежит '500px' (строка). мы отнимаем через slice 2 последних знака и унарным плюсом преобразовывем в число 
+				offset = 0;
+			} else {
+				offset += +width.slice(0, width.length - 2);
+	// когда нажимаем стрелку впёред, к нам добавляется ширина еще одного слайда и слайд будет смещаться на опр. величину
+			}
+
+			slidesField.style.transform = `translateX(-${offset}px)`;
+
+			if (slideIndex == slides.length) {
+				slideIndex = 1;
+			} else {
+				slideIndex++;
+			}
+
+			if (slides.length < 10) {
+				current.textContent = `0${slideIndex}`;
+			} else {
+				current.textContent = slideIndex;
+			}
+		});
+
+		prev.addEventListener('click', () => {
+			if (offset == 0){  
+	// когда мы нажимаем на prev и у нас первый сладй, то мы перемещаемся в самый конец
+				offset = +width.slice(0, width.length - 2) * (slides.length - 1);
+	// записываем сюда последний слайд, который вычисляется по этой формуле
+			} else {
+				offset -= +width.slice(0, width.length - 2);
+	// если это был не первый слайд, то мы отнимаем 
+			}
+
+			slidesField.style.transform = `translateX(-${offset}px)`;
+
+			if (slideIndex == 1) {
+				slideIndex = slides.length;
+			} else {
+				slideIndex--;
+			}
+
+			if (slides.length < 10) {
+				current.textContent = `0${slideIndex}`;
+			} else {
+				current.textContent = slideIndex;
+			}
+		});
+
+		// showSlides(slideIndex);
+  
+		// if (slides.length < 10) {
+		// 	 total.textContent = `0${slides.length}`;
+		// } else {
+		// 	 total.textContent = slides.length;
+		// }
+  
+		// function showSlides(n) {	//функция по показу и скрытию слайдов куда приходит slideIndex
+		// 	 if (n > slides.length) {
+		// 		  slideIndex = 1;
+		// 	 }
+		// 	 if (n < 1) {	// если номер слайда меньше 1, то мы ставим последний слайдер
+		// 		  slideIndex = slides.length;
+		// 	 }
+  
+		// 	 slides.forEach((item) => item.style.display = 'none'); //скрываем все классы и показываем только интересующий
+  
+		// 	 slides[slideIndex - 1].style.display = 'block';  // отнимаем единицу от текущего значения (для человека)
+			 
+		// 	 if (slides.length < 10) {
+		// 		  current.textContent =  `0${slideIndex}`;
+		// 	 } else {
+		// 		  current.textContent =  slideIndex;
+		// 	 }
+		// }
+  
+		// function plusSlides (n) {
+		// 	 showSlides(slideIndex += n);
+		// }
+  
+		// prev.addEventListener('click', function(){	// при нажатии на prev отнимаем один слайдер
+		// 	 plusSlides(-1);
+		// });
+  
+		// next.addEventListener('click', function(){	// при нажатии на next прибавляем один слайдер
+		// 	 plusSlides(1);
+		// });
 });
 
 
